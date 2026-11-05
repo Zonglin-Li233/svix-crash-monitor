@@ -48,6 +48,12 @@ def vol(x):
     return "&ndash;" if pd.isna(x) else f"{x:.1f}"
 
 
+def date_label(value, *, weekday=False):
+    """Format a date without a leading zero, on Windows and Unix alike."""
+    prefix = value.strftime("%a, %b" if weekday else "%B")
+    return f"{prefix} {value.day}, {value:%Y}"
+
+
 def reading_text(history):
     last = history.iloc[-1]
     lines = [
@@ -74,13 +80,13 @@ def build_html(history):
     server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
     run_id = os.environ.get("GITHUB_RUN_ID")
     now = datetime.now(timezone.utc)
-    updated = f"{now:%B %-d, %Y at %H:%M} UTC"
+    updated = f"{date_label(now)} at {now:%H:%M} UTC"
     if repo and run_id:
         updated = f'<a href="{server}/{repo}/actions/runs/{run_id}">{updated}</a>, by a GitHub Actions run'
     source = f' Code and history: <a href="{server}/{repo}">{escape(repo)}</a>.' if repo else ""
     recent = history.tail(10).iloc[::-1]
     rows = "\n".join(
-        f"<tr><td>{r.date:%a, %b %-d, %Y}</td><td class='num'>{r.svix_30:.1f}</td><td class='num'>{vol(r.vix)}</td>"
+        f"<tr><td>{date_label(r.date, weekday=True)}</td><td class='num'>{r.svix_30:.1f}</td><td class='num'>{vol(r.vix)}</td>"
         f"<td class='num'>{pct(r.p_star_20)}</td><td class='num'>{pct(r.p_log_20)}</td>"
         f"<td class='num'>{pct(r.p_power_20)}</td></tr>"
         for r in recent.itertuples()
@@ -88,9 +94,9 @@ def build_html(history):
     chart = make_figure(history).to_html(full_html=False, include_plotlyjs="cdn",
                                          config={"displaylogo": False, "responsive": True})
     return TEMPLATE.format(
-        p_log=pct(last["p_log_20"]), svix=f"{last['svix_30']:.1f}", as_of=f"{last['date']:%B %-d, %Y}",
+        p_log=pct(last["p_log_20"]), svix=f"{last['svix_30']:.1f}", as_of=date_label(last["date"]),
         reading="".join(f"<p>{line}</p>" for line in lines),
-        chart=chart, first=f"{history['date'].iloc[0]:%B %-d, %Y}", sessions=f"{len(history):,}", rows=rows,
+        chart=chart, first=date_label(history["date"].iloc[0]), sessions=f"{len(history):,}", rows=rows,
         updated=updated, source=source,
     )
 
@@ -205,5 +211,5 @@ if __name__ == "__main__":
     if history.empty:
         raise SystemExit("No history yet: run `doit` (the backfill) or `doit latest` first.")
     PAGE_DIR.mkdir(parents=True, exist_ok=True)
-    PAGE.write_text(build_html(history))
+    PAGE.write_text(build_html(history), encoding="utf-8")
     print(f"Wrote {PAGE.relative_to(OUTPUT_DIR.parent)} ({len(history)} sessions, latest {history['date'].iloc[-1]:%Y-%m-%d})")
