@@ -1,0 +1,1 @@
+Derived daily history from [Zonglin Li's HW3 SVIX monitor](https://zonglin-li233.github.io/svix-crash-monitor/); use `chartbook.toml` to load a pinned snapshot and read its units, variable crash-probability horizon, and limitations.
